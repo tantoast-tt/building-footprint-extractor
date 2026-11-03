@@ -61,3 +61,11 @@ GIS 도구는 벡터를 요구하기 때문이다. 후처리는 네 단계로 �
 
 - [Inria Aerial Image Labeling](https://project.inria.fr/aerialimagelabeling/) — 0.3m 항공 정사영상,
   미국·오스트리아 5개 도시 180장(5000×5000), 건물 이진 마스크 제공
+
+
+## 결과 (1차 베이스라인)
+
+- 데이터: Inria train 20장(austin) → 512px 타일, 건물 비율 1% 이상 필터
+- 모델: U-Net(resnet34, ImageNet 사전학습), Dice+BCE, 15 epoch, Colab T4
+- 검증 성능: **IoU 0.739 / F1 0.849** (원본 영상 단위 분리 검증, `runs` 로그 참조)
+- 일반화 확인: 학습에 없는 도시(vienna1, 5000×5000)에서 건물 1,971동 추출 → GeoJSON 출력
