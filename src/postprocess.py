@@ -51,7 +51,7 @@ def mask_to_polygons(mask: np.ndarray, min_area: float = 50.0, simplify_tol: flo
     return polys
 
 
-def rectangularize(poly: Polygon, iou_thr: float = 0.75) -> Polygon:
+def rectangularize(poly: Polygon, iou_thr: float = 0.9) -> Polygon:
     """최소회전사각형과의 IoU가 iou_thr 이상이면 사각형으로 교체(직각 형상 보정)."""
     pts = np.array(poly.exterior.coords, dtype=np.float32)
     rect = cv2.minAreaRect(pts)
@@ -66,7 +66,7 @@ def rectangularize(poly: Polygon, iou_thr: float = 0.75) -> Polygon:
     return rect_poly if inter / union >= iou_thr else poly
 
 
-def refine_polygons(polys, iou_thr: float = 0.75):
+def refine_polygons(polys, iou_thr: float = 0.9):
     return [rectangularize(p, iou_thr) for p in polys]
 
 
@@ -106,7 +106,7 @@ def save_geojson(polys, path, transform=None):
         json.dump(to_geojson(polys, transform), f, ensure_ascii=False)
 
 
-def extract(mask: np.ndarray, min_area=50.0, simplify_tol=1.5, rect_iou=0.75, transform=None):
+def extract(mask: np.ndarray, min_area=50.0, simplify_tol=1.5, rect_iou=0.9, transform=None):
     """마스크 → (후처리 폴리곤, GeoJSON dict). 한 번에 실행하는 편의 함수."""
     polys = mask_to_polygons(mask, min_area=min_area, simplify_tol=simplify_tol)
     polys = refine_polygons(polys, iou_thr=rect_iou)
