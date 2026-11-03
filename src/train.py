@@ -62,6 +62,7 @@ def main():
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--val-ratio", type=float, default=0.15)
+    ap.add_argument("--init-from", default=None, help="파인튜닝 시작 가중치(best.pt 경로)")
     ap.add_argument("--workers", type=int, default=2)
     a = ap.parse_args()
 
@@ -80,6 +81,10 @@ def main():
     val_ld = DataLoader(val_ds, batch_size=a.batch, num_workers=a.workers, pin_memory=True)
 
     model = build_model(a.arch, a.encoder).to(device)
+    if a.init_from:
+        ckpt = torch.load(a.init_from, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model"])
+        print(f"가중치 초기화: {a.init_from} (val_iou {ckpt.get('val_iou')})")
     dice = smp.losses.DiceLoss(mode="binary")
     bce = torch.nn.BCEWithLogitsLoss()
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr)
