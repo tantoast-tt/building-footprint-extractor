@@ -57,7 +57,8 @@ tab1, tab2 = st.tabs(["항공영상 추론", "마스크 후처리만"])
 
 with tab1:
     up = st.file_uploader("항공영상 (png/jpg/tif)", type=["png", "jpg", "jpeg", "tif", "tiff"], key="img")
-    model = get_model(MODELS[model_name])
+    with st.spinner("모델 불러오는 중... (첫 실행은 다운로드로 1~2분)"):
+        model = get_model(MODELS[model_name])
     if up is None:
         st.info("이미지를 올리면 모델 추론 → 벡터화까지 실행합니다.")
     elif model is None:
@@ -66,8 +67,14 @@ with tab1:
         from src.infer import predict_image
 
         image = np.array(Image.open(up).convert("RGB"))
-        with st.spinner("추론 중..."):
-            mask = predict_image(model, image, thr=thr)
+        bar = st.progress(0, text="추론 준비 중...")
+
+        def _update(done, total):
+            pct = done * 100 // total
+            bar.progress(done / total, text=f"타일 추론 중... {done}/{total} ({pct}%)")
+
+        mask = predict_image(model, image, thr=thr, progress=_update)
+        bar.empty()
         polys, gj = extract(mask, min_area=min_area, simplify_tol=simplify, rect_iou=rect_iou)
 
         c1, c2 = st.columns(2)

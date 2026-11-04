@@ -28,20 +28,28 @@ def load_model(ckpt_path, device="cpu"):
 
 
 @torch.no_grad()
-def predict_image(model, image: np.ndarray, device="cpu", tile=512, thr=0.5) -> np.ndarray:
-    """큰 이미지를 타일 단위로 추론해 이어 붙인 0/255 마스크 반환."""
+def predict_image(model, image: np.ndarray, device="cpu", tile=512, thr=0.5, progress=None) -> np.ndarray:
+    """큰 이미지를 타일 단위로 추론해 이어 붙인 0/255 마스크 반환.
+
+    progress: 콜백 f(done, total). 타일 하나 처리할 때마다 호출된다.
+    """
     h, w = image.shape[:2]
     pad_h = (tile - h % tile) % tile
     pad_w = (tile - w % tile) % tile
     img = np.pad(image, ((0, pad_h), (0, pad_w), (0, 0)), mode="reflect")
     prob = np.zeros(img.shape[:2], dtype=np.float32)
 
+    total = (img.shape[0] // tile) * (img.shape[1] // tile)
+    done = 0
     for y in range(0, img.shape[0], tile):
         for x in range(0, img.shape[1], tile):
             patch = img[y : y + tile, x : x + tile]
             t = torch.from_numpy(patch.transpose(2, 0, 1)).float()[None] / 255.0
             p = torch.sigmoid(model(t.to(device)))[0, 0].cpu().numpy()
             prob[y : y + tile, x : x + tile] = p
+            done += 1
+            if progress is not None:
+                progress(done, total)
 
     mask = (prob[:h, :w] > thr).astype(np.uint8) * 255
     return mask
