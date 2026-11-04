@@ -16,7 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.postprocess import extract, mask_to_polygons, polygons_to_mask  # noqa: E402
 
 Image.MAX_IMAGE_PIXELS = None
-MODEL_PATH = Path("runs/unet_r34/best.pt")
+MODEL_DIR = Path("runs/unet_r34")
+HF_REPO = "tantoast/building-footprint-extractor"
+MODELS = {
+    "Inria (유럽 항공영상)": "best.pt",
+    "국내 위성 파인튜닝 (AI Hub)": "best_ko.pt",
+}
 
 st.set_page_config(page_title="Building Footprint Extractor", layout="wide")
 st.title("항공영상 건물 추출")
@@ -24,31 +29,39 @@ st.caption("세그멘테이션 마스크를 폴리곤으로 벡터화하고 형�
 
 
 @st.cache_resource
-def get_model():
-    if not MODEL_PATH.exists():
-        return None
+def get_model(fname: str):
+    path = MODEL_DIR / fname
+    if not path.exists():  # 로컬에 없으면 HF Hub에서 내려받기
+        try:
+            from huggingface_hub import hf_hub_download
+
+            path = Path(hf_hub_download(repo_id=HF_REPO, filename=fname))
+        except Exception:
+            return None
     import torch  # noqa: F401
     from src.infer import load_model
 
-    return load_model(MODEL_PATH)
+    return load_model(path)
 
 
 with st.sidebar:
+    st.header("모델")
+    model_name = st.selectbox("가중치 선택", list(MODELS))
     st.header("후처리 설정")
     min_area = st.slider("최소 면적(px²)", 10, 500, 50, 10)
     simplify = st.slider("단순화 허용오차(px)", 0.0, 5.0, 1.5, 0.5)
-    rect_iou = st.slider("직사각형 보정 IoU 임계값", 0.5, 0.95, 0.75, 0.05)
+    rect_iou = st.slider("직사각형 보정 IoU 임계값", 0.5, 0.95, 0.9, 0.05)
     thr = st.slider("마스크 임계값", 0.1, 0.9, 0.5, 0.05)
 
 tab1, tab2 = st.tabs(["항공영상 추론", "마스크 후처리만"])
 
 with tab1:
     up = st.file_uploader("항공영상 (png/jpg/tif)", type=["png", "jpg", "jpeg", "tif", "tiff"], key="img")
-    model = get_model()
+    model = get_model(MODELS[model_name])
     if up is None:
         st.info("이미지를 올리면 모델 추론 → 벡터화까지 실행합니다.")
     elif model is None:
-        st.warning("모델 가중치(runs/unet_r34/best.pt)가 없습니다. 학습 후 다시 실행하거나 '마스크 후처리만' 탭을 사용하세요.")
+        st.warning("모델 가중치를 찾지 못했습니다(로컬·HF Hub 모두 실패). 학습 후 다시 실행하거나 '마스크 후처리만' 탭을 사용하세요.")
     else:
         from src.infer import predict_image
 
